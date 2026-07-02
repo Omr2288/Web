@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clientes - Tomahawk Services</title>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; }
+    button { padding: 8px 12px; margin: 5px; }
+    #modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal .content {
+      background: white;
+      padding: 20px;
+      width: 350px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Clientes</h1>
+  <button onclick="abrirModal()">Agregar cliente</button>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Teléfono</th>
+          <th>Email</th>
+          <th>Dirección</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaClientes"></tbody>
+    </table>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div class="content">
+      <h3 id="tituloModal">Nuevo cliente</h3>
+
+      <input id="nombre" placeholder="Nombre" style="width:100%; margin-top:10px;">
+      <input id="telefono" placeholder="Teléfono" style="width:100%; margin-top:10px;">
+      <input id="email" placeholder="Email" style="width:100%; margin-top:10px;">
+      <input id="direccion" placeholder="Dirección" style="width:100%; margin-top:10px;">
+
+      <button onclick="guardarCliente()" style="margin-top:15px;">Guardar</button>
+      <button onclick="cerrarModal()">Cancelar</button>
+
+      <input type="hidden" id="clienteId">
+    </div>
+  </div>
+
+  <script>
+    async function cargarClientes() {
+      const res = await fetch("/api/clientes");
+      const clientes = await res.json();
+
+      const tbody = document.getElementById("tablaClientes");
+      tbody.innerHTML = "";
+
+      clientes.forEach(c => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${c.nombre}</td>
+          <td>${c.telefono || ""}</td>
+          <td>${c.email || ""}</td>
+          <td>${c.direccion || ""}</td>
+          <td>
+            <button onclick="editar(${c.id})">Editar</button>
+            <button onclick="eliminar(${c.id})">Eliminar</button>
+            <button onclick="verProyectos(${c.id})">Proyectos</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function abrirModal() {
+      document.getElementById("clienteId").value = "";
+      document.getElementById("tituloModal").textContent = "Nuevo cliente";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    async function guardarCliente() {
+      const id = document.getElementById("clienteId").value;
+      const nombre = document.getElementById("nombre").value;
+      const telefono = document.getElementById("telefono").value;
+      const email = document.getElementById("email").value;
+      const direccion = document.getElementById("direccion").value;
+
+      const data = { nombre, telefono, email, direccion };
+
+      let res;
+
+      if (id) {
+        res = await fetch("/api/clientes/" + id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } else {
+        res = await fetch("/api/clientes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      }
+
+      cerrarModal();
+      cargarClientes();
+    }
+
+    async function editar(id) {
+      const res = await fetch("/api/clientes/" + id);
+      const c = await res.json();
+
+      document.getElementById("clienteId").value = c.id;
+      document.getElementById("nombre").value = c.nombre;
+      document.getElementById("telefono").value = c.telefono;
+      document.getElementById("email").value = c.email;
+      document.getElementById("direccion").value = c.direccion;
+
+      document.getElementById("tituloModal").textContent = "Editar cliente";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    async function eliminar(id) {
+      if (!confirm("¿Eliminar cliente?")) return;
+
+      await fetch("/api/clientes/" + id, { method: "DELETE" });
+      cargarClientes();
+    }
+
+    function verProyectos(id) {
+      window.location.href = "/proyectos.html?cliente=" + id;
+    }
+
+    cargarClientes();
+  </script>
+
+</body>
+</html>

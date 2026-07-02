@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Proyectos - Tomahawk Services</title>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; }
+    button { padding: 8px 12px; margin: 5px; }
+    #modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal .content {
+      background: white;
+      padding: 20px;
+      width: 350px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Proyectos</h1>
+  <button onclick="abrirModal()">Nuevo proyecto</button>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Proyecto</th>
+          <th>Descripción</th>
+          <th>Estatus</th>
+          <th>Inicio</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaProyectos"></tbody>
+    </table>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div class="content">
+      <h3 id="tituloModal">Nuevo proyecto</h3>
+
+      <input id="nombre" placeholder="Nombre del proyecto" style="width:100%; margin-top:10px;">
+      <textarea id="descripcion" placeholder="Descripción" style="width:100%; margin-top:10px;"></textarea>
+      <input id="fecha_inicio" type="date" style="width:100%; margin-top:10px;">
+
+      <select id="estatus" style="width:100%; margin-top:10px;">
+        <option value="pendiente">Pendiente</option>
+        <option value="en proceso">En proceso</option>
+        <option value="terminado">Terminado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+
+      <button onclick="guardarProyecto()" style="margin-top:15px;">Guardar</button>
+      <button onclick="cerrarModal()">Cancelar</button>
+
+      <input type="hidden" id="proyectoId">
+      <input type="hidden" id="clienteId">
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const cliente = urlParams.get("cliente");
+
+    document.getElementById("clienteId").value = cliente;
+
+    async function cargarProyectos() {
+      const res = await fetch("/api/proyectos/" + cliente);
+      const proyectos = await res.json();
+
+      const tbody = document.getElementById("tablaProyectos");
+      tbody.innerHTML = "";
+
+      proyectos.forEach(p => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${p.nombre}</td>
+          <td>${p.descripcion || ""}</td>
+          <td>${p.estatus}</td>
+          <td>${p.fecha_inicio || ""}</td>
+          <td>
+            <button onclick="editar(${p.id})">Editar</button>
+            <button onclick="materiales(${p.id})">Materiales</button>
+            <button onclick="fotos(${p.id})">Fotos</button>
+            <button onclick="cotizaciones(${p.id})">Cotizaciones</button>
+            <button onclick="eliminar(${p.id})">Eliminar</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function abrirModal() {
+      document.getElementById("proyectoId").value = "";
+      document.getElementById("tituloModal").textContent = "Nuevo proyecto";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    async function guardarProyecto() {
+      const id = document.getElementById("proyectoId").value;
+      const cliente_id = document.getElementById("clienteId").value;
+      const nombre = document.getElementById("nombre").value;
+      const descripcion = document.getElementById("descripcion").value;
+      const fecha_inicio = document.getElementById("fecha_inicio").value;
+      const estatus = document.getElementById("estatus").value;
+
+      const data = { cliente_id, nombre, descripcion, fecha_inicio, estatus };
+
+      let res;
+
+      if (id) {
+        res = await fetch("/api/proyectos/" + id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } else {
+        res = await fetch("/api/proyectos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      }
+
+      cerrarModal();
+      cargarProyectos();
+    }
+
+    async function editar(id) {
+      const res = await fetch("/api/proyectos/detalle/" + id);
+      const p = await res.json();
+
+      document.getElementById("proyectoId").value = p.id;
+      document.getElementById("nombre").value = p.nombre;
+      document.getElementById("descripcion").value = p.descripcion;
+      document.getElementById("fecha_inicio").value = p.fecha_inicio;
+      document.getElementById("estatus").value = p.estatus;
+
+      document.getElementById("tituloModal").textContent = "Editar proyecto";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    async function eliminar(id) {
+      if (!confirm("¿Eliminar proyecto?")) return;
+
+      await fetch("/api/proyectos/" + id, { method: "DELETE" });
+      cargarProyectos();
+    }
+
+    function materiales(id) {
+      window.location.href = "/materiales.html?proyecto=" + id;
+    }
+
+    function fotos(id) {
+      window.location.href = "/fotos.html?proyecto=" + id;
+    }
+
+    function cotizaciones(id) {
+      window.location.href = "/cotizaciones.html?proyecto=" + id;
+    }
+
+    cargarProyectos();
+  </script>
+
+</body>
+</html>

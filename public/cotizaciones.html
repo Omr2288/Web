@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Cotizaciones - Tomahawk Services</title>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; }
+    button { padding: 8px 12px; margin: 5px; cursor: pointer; }
+    #modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal .content {
+      background: white;
+      padding: 20px;
+      width: 350px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Cotizaciones</h1>
+  <button onclick="crearCotizacion()">Nueva cotización</button>
+
+  <div class="card">
+    <h3>Lista de cotizaciones</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Total</th>
+          <th>Fecha</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaCotizaciones"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Items de cotización</h3>
+    <button onclick="abrirModal()">Agregar item</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th>Cantidad</th>
+          <th>Precio</th>
+          <th>Total</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaItems"></tbody>
+    </table>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div class="content">
+      <h3>Agregar item</h3>
+
+      <input id="descripcion" placeholder="Descripción" style="width:100%; margin-top:10px;">
+      <input id="cantidad" type="number" placeholder="Cantidad" style="width:100%; margin-top:10px;">
+      <input id="precio" type="number" placeholder="Precio" style="width:100%; margin-top:10px;">
+
+      <button onclick="guardarItem()" style="margin-top:15px;">Guardar</button>
+      <button onclick="cerrarModal()">Cancelar</button>
+
+      <input type="hidden" id="cotizacionId">
+      <input type="hidden" id="itemId">
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const proyecto = urlParams.get("proyecto");
+
+    let cotizacionActual = null;
+
+    // ============================
+    // CARGAR COTIZACIONES
+    // ============================
+
+    async function cargarCotizaciones() {
+      const res = await fetch("/api/cotizaciones/" + proyecto);
+      const cotizaciones = await res.json();
+
+      const tbody = document.getElementById("tablaCotizaciones");
+      tbody.innerHTML = "";
+
+      cotizaciones.forEach(c => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${c.id}</td>
+          <td>$${c.total.toFixed(2)}</td>
+          <td>${c.fecha_creado}</td>
+          <td>
+            <button onclick="verItems(${c.id})">Ver</button>
+            <button onclick="pdf(${c.id})">PDF</button>
+            <button onclick="eliminarCotizacion(${c.id})">Eliminar</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ============================
+    // CREAR COTIZACIÓN
+    // ============================
+
+    async function crearCotizacion() {
+      const res = await fetch("/api/cotizaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proyecto_id: proyecto })
+      });
+
+      const data = await res.json();
+      cotizacionActual = data.id;
+
+      cargarCotizaciones();
+      verItems(cotizacionActual);
+    }
+
+    // ============================
+    // VER ITEMS
+    // ============================
+
+    async function verItems(id) {
+      cotizacionActual = id;
+
+      const res = await fetch("/api/items/" + id);
+      const items = await res.json();
+
+      const tbody = document.getElementById("tablaItems");
+      tbody.innerHTML = "";
+
+      items.forEach(i => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${i.descripcion}</td>
+          <td>${i.cantidad}</td>
+          <td>$${i.precio.toFixed(2)}</td>
+          <td>$${(i.cantidad * i.precio).toFixed(2)}</td>
+          <td>
+            <button onclick="editarItem(${i.id})">Editar</button>
+            <button onclick="eliminarItem(${i.id})">Eliminar</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ============================
+    // MODAL
+    // ============================
+
+    function abrirModal() {
+      document.getElementById("itemId").value = "";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    // ============================
+    // GUARDAR ITEM
+    // ============================
+
+    async function guardarItem() {
+      const id = document.getElementById("itemId").value;
+      const descripcion = document.getElementById("descripcion").value;
+      const cantidad = parseFloat(document.getElementById("cantidad").value);
+      const precio = parseFloat(document.getElementById("precio").value);
+
+      const data = { descripcion, cantidad, precio, cotizacion_id: cotizacionActual };
+
+      let res;
+
+      if (id) {
+        res = await fetch("/api/items/" + id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } else {
+        res = await fetch("/api/items", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      }
+
+      cerrarModal();
+      verItems(cotizacionActual);
+      cargarCotizaciones();
+    }
+
+    // ============================
+    // EDITAR ITEM
+    // ============================
+
+    async function editarItem(id) {
+      const res = await fetch("/api/items/detalle/" + id);
+      const i = await res.json();
+
+      document.getElementById("itemId").value = i.id;
+      document.getElementById("descripcion").value = i.descripcion;
+      document.getElementById("cantidad").value = i.cantidad;
+      document.getElementById("precio").value = i.precio;
+
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    // ============================
+    // ELIMINAR ITEM
+    // ============================
+
+    async function eliminarItem(id) {
+      await fetch("/api/items/" + id, { method: "DELETE" });
+      verItems(cotizacionActual);
+      cargarCotizaciones();
+    }
+
+    // ============================
+    // ELIMINAR COTIZACIÓN
+    // ============================
+
+    async function eliminarCotizacion(id) {
+      if (!confirm("¿Eliminar cotización completa?")) return;
+
+      await fetch("/api/cotizaciones/" + id, { method: "DELETE" });
+      cargarCotizaciones();
+      document.getElementById("tablaItems").innerHTML = "";
+    }
+
+    // ============================
+    // GENERAR PDF
+    // ============================
+
+    function pdf(id) {
+      window.open("/api/cotizacion/pdf/" + id, "_blank");
+    }
+
+    cargarCotizaciones();
+  </script>
+
+</body>
+</html>

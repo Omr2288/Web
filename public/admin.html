@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Administración</title>
+
+  <!-- Chart.js para gráficas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; color: #000; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h1 { margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; }
+    pre { background: #111; color: #0f0; padding: 10px; border-radius: 5px; }
+    button { margin-bottom: 10px; }
+    body.dark { background: #222; color: #fff; }
+    body.dark .card { background: #333; color: #fff; }
+    body.dark pre { background: #000; color: #0f0; }
+  </style>
+</head>
+
+<body>
+
+  <h1>Panel de Administración</h1>
+  <button onclick="toggleTheme()">Cambiar tema oscuro/claro</button>
+
+  <!-- USO DEL SISTEMA -->
+  <div class="card">
+    <h2>Uso del sistema</h2>
+    <p><strong>CPU:</strong> <span id="cpu">...</span></p>
+    <p><strong>RAM:</strong> <span id="ram">...</span></p>
+  </div>
+
+  <!-- GRÁFICAS EN TIEMPO REAL -->
+  <div class="card">
+    <h2>Gráficas en tiempo real</h2>
+    <canvas id="cpuChart" height="100"></canvas>
+    <canvas id="ramChart" height="100" style="margin-top:20px;"></canvas>
+  </div>
+
+  <!-- ESTADÍSTICAS -->
+  <div class="card">
+    <h2>Estadísticas</h2>
+    <p><strong>Total de archivos:</strong> <span id="totalArchivos">...</span></p>
+    <p><strong>Tamaño total:</strong> <span id="totalTamano">...</span></p>
+  </div>
+
+  <!-- ÚLTIMOS ARCHIVOS -->
+  <div class="card">
+    <h2>Últimos archivos subidos</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Tamaño</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody id="ultimos"></tbody>
+    </table>
+  </div>
+
+  <!-- VELOCIDAD DE RED -->
+  <div class="card">
+    <h2>Velocidad de red</h2>
+    <p><strong>Subida:</strong> <span id="up">...</span></p>
+    <p><strong>Bajada:</strong> <span id="down">...</span></p>
+  </div>
+
+  <!-- LOGS DEL SERVIDOR -->
+  <div class="card">
+    <h2>Logs del servidor</h2>
+    <pre id="logs" style="max-height:200px; overflow:auto;"></pre>
+  </div>
+
+  <!-- ACCIONES RÁPIDAS -->
+  <div class="card">
+    <h2>Acciones rápidas</h2>
+    <a href="/upload.html">Subir archivo</a><br>
+    <a href="/upload-multiple.html">Subida múltiple</a><br>
+    <a href="/files.html">Ver archivos</a><br>
+    <a href="/logout">Cerrar sesión</a>
+  </div>
+
+  <script>
+    // Tema oscuro/claro
+    function toggleTheme() {
+      document.body.classList.toggle("dark");
+    }
+
+    // Datos iniciales para gráficas
+    let cpuData = [];
+    let ramData = [];
+    let labels = [];
+
+    // Crear gráficas
+    const cpuChart = new Chart(document.getElementById("cpuChart"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "CPU (%)",
+          data: cpuData,
+          borderColor: "red",
+          tension: 0.3
+        }]
+      }
+    });
+
+    const ramChart = new Chart(document.getElementById("ramChart"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "RAM (%)",
+          data: ramData,
+          borderColor: "blue",
+          tension: 0.3
+        }]
+      }
+    });
+
+    // Actualizar gráficas
+    function actualizarGraficas(cpu, ram) {
+      const now = new Date().toLocaleTimeString();
+
+      labels.push(now);
+      cpuData.push(cpu);
+      ramData.push(ram);
+
+      if (labels.length > 20) {
+        labels.shift();
+        cpuData.shift();
+        ramData.shift();
+      }
+
+      cpuChart.update();
+      ramChart.update();
+    }
+
+    // SISTEMA (CPU y RAM)
+    async function cargarSistema() {
+      const res = await fetch("/api/system");
+
+      if (res.status === 401) {
+        alert("Tu sesión expiró. Inicia sesión.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+
+      document.getElementById("cpu").textContent = data.cpu + "%";
+      document.getElementById("ram").textContent = data.ram.toFixed(1) + "%";
+
+      actualizarGraficas(data.cpu, data.ram);
+    }
+
+    setInterval(cargarSistema, 2000);
+    cargarSistema();
+
+    // ESTADÍSTICAS DE ARCHIVOS
+    async function cargarStats() {
+      const res = await fetch("/api/stats");
+
+      if (res.status === 401) {
+        alert("Tu sesión expiró. Inicia sesión.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+
+      document.getElementById("totalArchivos").textContent = data.totalArchivos;
+      document.getElementById("totalTamano").textContent =
+        (data.totalTamano / 1024 / 1024).toFixed(2) + " MB";
+
+      const tbody = document.getElementById("ultimos");
+      tbody.innerHTML = "";
+
+      data.ultimos.forEach(a => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${a.nombre}</td>
+          <td>${(a.tamano / 1024).toFixed(1)} KB</td>
+          <td>${new Date(a.fecha).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    cargarStats();
+
+    // VELOCIDAD DE RED
+    async function cargarRed() {
+      const res = await fetch("/api/network");
+
+      if (res.status === 401) {
+        alert("Tu sesión expiró. Inicia sesión.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+
+      document.getElementById("up").textContent =
+        (data.up / 1024).toFixed(1) + " KB/s";
+      document.getElementById("down").textContent =
+        (data.down / 1024).toFixed(1) + " KB/s";
+    }
+
+    setInterval(cargarRed, 2000);
+    cargarRed();
+
+    // LOGS DEL SERVIDOR
+    async function cargarLogs() {
+      const res = await fetch("/api/logs");
+
+      if (res.status === 401) {
+        alert("Tu sesión expiró. Inicia sesión.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById("logs").textContent = data.logs || "";
+    }
+
+    setInterval(cargarLogs, 5000);
+    cargarLogs();
+  </script>
+
+</body>
+</html>

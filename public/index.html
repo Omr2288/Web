@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tomahawk Services LLC</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    /* Colores corporativos */
+    :root {
+      --verde: #00C853;
+      --verde-oscuro: #0A5C3B;
+      --dorado: #D4AF37;
+      --gris: #555;
+      --blanco: #fff;
+    }
+
+    header {
+      background: var(--verde-oscuro);
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--blanco);
+    }
+
+    header img {
+      height: 60px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--dorado);
+    }
+
+    .container {
+      padding: 30px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .card {
+      background: var(--blanco);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 25px;
+      border-left: 6px solid var(--verde);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: var(--verde-oscuro);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    .stat-box {
+      background: var(--blanco);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      border: 2px solid var(--verde);
+    }
+
+    .stat-box h3 {
+      margin: 0;
+      font-size: 18px;
+      color: var(--verde-oscuro);
+    }
+
+    .stat-box p {
+      font-size: 32px;
+      margin: 10px 0 0;
+      color: var(--dorado);
+      font-weight: bold;
+    }
+
+    footer {
+      background: var(--verde-oscuro);
+      color: var(--blanco);
+      text-align: center;
+      padding: 15px;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ENCABEZADO -->
+  <header>
+    <img src="/logo.png" alt="Tomahawk Logo">
+    <h1>Tomahawk Services LLC</h1>
+  </header>
+
+  <!-- CONTENIDO -->
+  <div class="container">
+
+    <div class="card">
+      <h2>Panel de Control</h2>
+      <p>Bienvenido al sistema administrativo de Tomahawk Services LLC. Selecciona una sección del menú o consulta las estadísticas generales.</p>
+    </div>
+
+    <!-- ESTADÍSTICAS -->
+    <div class="stats" id="stats">
+      <div class="stat-box">
+        <h3>Clientes</h3>
+        <p id="statClientes">0</p>
+      </div>
+
+      <div class="stat-box">
+        <h3>Proyectos</h3>
+        <p id="statProyectos">0</p>
+      </div>
+
+      <div class="stat-box">
+        <h3>Proyectos Activos</h3>
+        <p id="statActivos">0</p>
+      </div>
+
+      <div class="stat-box">
+        <h3>Cotizaciones Pendientes</h3>
+        <p id="statPendientes">0</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PIE DE PÁGINA -->
+  <footer>
+    © 2026 Tomahawk Services LLC — Construcción, Remodelación y Servicios Profesionales
+  </footer>
+
+  <!-- SCRIPT PARA CARGAR ESTADÍSTICAS -->
+  <script>
+    async function cargarDashboard() {
+      try {
+        const res = await fetch("/api/dashboard");
+        const data = await res.json();
+
+        document.getElementById("statClientes").textContent = data.totalClientes;
+        document.getElementById("statProyectos").textContent = data.totalProyectos;
+        document.getElementById("statActivos").textContent = data.proyectosActivos;
+        document.getElementById("statPendientes").textContent = data.cotizacionesPendientes;
+
+      } catch (err) {
+        console.error("Error cargando dashboard:", err);
+      }
+    }
+
+    cargarDashboard();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Materiales - Tomahawk Services</title>
+
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; border-bottom: 1px solid #ccc; }
+    button { padding: 8px 12px; margin: 5px; }
+    #modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal .content {
+      background: white;
+      padding: 20px;
+      width: 350px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Materiales del proyecto</h1>
+  <button onclick="abrirModal()">Agregar material</button>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Material</th>
+          <th>Cantidad</th>
+          <th>Costo unitario</th>
+          <th>Total</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaMateriales"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Total del proyecto:</h3>
+    <h2 id="totalProyecto">$0.00</h2>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modal">
+    <div class="content">
+      <h3 id="tituloModal">Nuevo material</h3>
+
+      <input id="nombre" placeholder="Nombre del material" style="width:100%; margin-top:10px;">
+      <input id="cantidad" type="number" placeholder="Cantidad" style="width:100%; margin-top:10px;">
+      <input id="costo" type="number" placeholder="Costo unitario" style="width:100%; margin-top:10px;">
+
+      <button onclick="guardarMaterial()" style="margin-top:15px;">Guardar</button>
+      <button onclick="cerrarModal()">Cancelar</button>
+
+      <input type="hidden" id="materialId">
+      <input type="hidden" id="proyectoId">
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const proyecto = urlParams.get("proyecto");
+
+    document.getElementById("proyectoId").value = proyecto;
+
+    async function cargarMateriales() {
+      const res = await fetch("/api/materiales/" + proyecto);
+      const materiales = await res.json();
+
+      const tbody = document.getElementById("tablaMateriales");
+      tbody.innerHTML = "";
+
+      let total = 0;
+
+      materiales.forEach(m => {
+        const subtotal = m.cantidad * m.costo_unitario;
+        total += subtotal;
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${m.nombre}</td>
+          <td>${m.cantidad}</td>
+          <td>$${m.costo_unitario.toFixed(2)}</td>
+          <td>$${subtotal.toFixed(2)}</td>
+          <td>
+            <button onclick="editar(${m.id})">Editar</button>
+            <button onclick="eliminar(${m.id})">Eliminar</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("totalProyecto").textContent = "$" + total.toFixed(2);
+    }
+
+    function abrirModal() {
+      document.getElementById("materialId").value = "";
+      document.getElementById("tituloModal").textContent = "Nuevo material";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+
+    async function guardarMaterial() {
+      const id = document.getElementById("materialId").value;
+      const proyecto_id = document.getElementById("proyectoId").value;
+      const nombre = document.getElementById("nombre").value;
+      const cantidad = parseFloat(document.getElementById("cantidad").value);
+      const costo_unitario = parseFloat(document.getElementById("costo").value);
+
+      const data = { proyecto_id, nombre, cantidad, costo_unitario };
+
+      let res;
+
+      if (id) {
+        res = await fetch("/api/materiales/" + id, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      } else {
+        res = await fetch("/api/materiales", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+      }
+
+      cerrarModal();
+      cargarMateriales();
+    }
+
+    async function editar(id) {
+      const res = await fetch("/api/materiales/detalle/" + id);
+      const m = await res.json();
+
+      document.getElementById("materialId").value = m.id;
+      document.getElementById("nombre").value = m.nombre;
+      document.getElementById("cantidad").value = m.cantidad;
+      document.getElementById("costo").value = m.costo_unitario;
+
+      document.getElementById("tituloModal").textContent = "Editar material";
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    async function eliminar(id) {
+      if (!confirm("¿Eliminar material?")) return;
+
+      await fetch("/api/materiales/" + id, { method: "DELETE" });
+      cargarMateriales();
+    }
+
+    cargarMateriales();
+  </script>
+
+</body>
+</html>
